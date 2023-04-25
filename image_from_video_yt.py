@@ -29,7 +29,6 @@ VIDEO = 'mp4'
 FIRST_IMAGE = "first_image.jpg"
 SECOND_IMAGE = "second_image.jpg"
 
-
 def compare_images(image1_path, image2_path):
 
     image1 = Image.open(image1_path)
@@ -86,13 +85,13 @@ def replace_line(number, line_text):
 def replace_line_change(line_count,number ,newstring):
     with open(YT_LIST_TXT, 'r', encoding='utf-8') as file:
         lines = file.readlines()
-    radka = change(number,lines[line_count], newstring)
+    radka = change(lines[line_count],number, newstring)
     lines[line_count] = radka
     with open(YT_LIST_TXT, 'w', encoding='utf-8') as file:
         file.writelines(lines)
         file.close()
 
-def change(number, line, newstring):
+def change( line,number, newstring):
     casti = line.split('|')
     casti[number] = newstring
     result = '|'.join(casti)
@@ -105,7 +104,8 @@ def get_part(number, line):
     casti = line.split('|')
     return casti[number]
 
-
+def name_correction(name):
+    return name.replace('|', '_')
 def get_list(api_key, playlist_id, yt_list_txt):
     youtube = build('youtube', 'v3', developerKey=api_key)
 
@@ -143,18 +143,16 @@ def get_list(api_key, playlist_id, yt_list_txt):
             videos.append(video)
     found_int = 0
     for video in videos:
-        video['title'] = video['title'].replace('|', '_')
+        video['title'] = name_correction(video['title'])
 
         found = False
         file = open(yt_list_txt, 'r', encoding='utf-8')
         radka = 0
-        line_text = ""
         line_count = 0
         for line in file:
             if video['video_id'] == get_part(VIDEO_ID, line):
                 found = True
                 radka = line_count
-                line_text = line
                 break
             line_count += 1
         file.close()
@@ -174,7 +172,7 @@ def get_list(api_key, playlist_id, yt_list_txt):
                   file=f)
             f.close()
     if DEBUG == True: print("Found: " + str(found_int)+"/"+str(len(videos)))
-
+    return len(videos)
 def download(video_id, output_folder, format):
     try:
         yt_url = "https://www.youtube.com/watch?v="
@@ -182,13 +180,14 @@ def download(video_id, output_folder, format):
         yt = pytube.YouTube(yt_url + video_id)
         stream = yt.streams.filter(file_extension=format).get_highest_resolution()
     except Exception as e:
-        print("Asi, nejsíš Network issue")
+        print("Asi, nejspíš Network issue")
         print(e)
         return False
 
-
     if stream:
-        default_name, ext = os.path.splitext(stream.default_filename)
+        video_name = stream.default_filename
+        video_name = name_correction(video_name)
+        default_name, ext = os.path.splitext(video_name)
         output_file = ("{}{}." + VIDEO).format(default_name, "[" + video_id + "]")
         stream.download(output_path=output_folder, filename=output_file)
         return True
@@ -198,7 +197,6 @@ def download(video_id, output_folder, format):
 
 
 def files_in_folder(substring, directory):
-    #print(substring)
     try:
         files = glob.glob(os.path.join(directory, "*"))
         matching_files = [file for file in files if substring in file]
@@ -228,12 +226,6 @@ def extract_images(video_path, video_name):
     ret, end_image = cap.read()
 
     cap.release()
-    """
-    print(FIRST_IMAGE)
-    print(video_name + FIRST_IMAGE)
-    start_image_path = os.path.join(IMAGE_FOLDER, video_name + FIRST_IMAGE)
-    end_image_path = os.path.join(IMAGE_FOLDER, video_name + SECOND_IMAGE)
-    """
 
     start_image_path = os.path.join(IMAGE_FOLDER, FIRST_IMAGE)
     end_image_path = os.path.join(IMAGE_FOLDER, SECOND_IMAGE)
@@ -252,53 +244,56 @@ def control_format(file, line_count, line):
             video = VideoFileClip(file)
             video.audio.write_audiofile(os.path.join(MUSIC_FOLDER, base_name+"."+AUDIO))
             os.remove(os.path.join(MUSIC_FOLDER, base_name+"."+VIDEO))
-            if DEBUG == True:print("zapsani: " +str(line_count)+" "+line+"  "+ change(STATUS, line, "audio"))
+            if DEBUG == True:print("zapsani: " +str(line_count)+" "+line+"  "+ change( line,STATUS, "audio"))
             replace_line_change(line_count, STATUS, "audio")
         else:
-            if DEBUG == True: print("zapsani: " + change(STATUS, line, "video"))
+            if DEBUG == True: print("zapsani: " + change( line,STATUS, "video"))
             replace_line_change(line_count, STATUS, "video")
 
     if AUDIO in jmeno[1]:
-        if DEBUG == True:print("zapsani: " + change(STATUS, line, "audio"))
+        if DEBUG == True:print("zapsani: " + change( line,STATUS, "audio"))
         replace_line_change(line_count, STATUS, "audio")
     now = datetime.datetime.now()
     replace_line_change(line_count, DATE, now.strftime("%d.%m.%Y, %H:%M:%S"))
 
-def download_list(yt_list_txt, output_folder, control):
-    shutil.copyfile(YT_LIST_TXT,HELP_LIST)
+def download_list(yt_list_txt, output_folder, control, videos_int):
+    shutil.copyfile(yt_list_txt,HELP_LIST)
     file = open(HELP_LIST, 'r', encoding='utf-8')
     line_count = 0
 
     for line in file:
+        if DEBUG == True: print("\033[35m"+"----------------------------------------------------------"+"\033[0m")
         video_id = get_part(VIDEO_ID, line)
         files = files_in_folder("[" + video_id + "]", output_folder)
         count = len(files)
         if count > 1:
-            print("Error: " + video_id + " is there " + str(len(files)) + " times")
+            print("\033[31m" + "Error: " + video_id + " is there " + str(len(files)) + " times" + "\033[0m")
+            #print("Error: " + video_id + " is there " + str(len(files)) + " times")
+            line_count += 1
             continue
         if count == 1:
-            if DEBUG == True: print("one file " +video_id+" found in " + MUSIC_FOLDER)
-            if not control:
-                continue
+            if DEBUG == True: print("\033[34m"+"one file " +video_id+" found in " + MUSIC_FOLDER+ "\033[0m")
         if count == 0:
-            print("no file " +video_id+" found in " + MUSIC_FOLDER)
+            print("\033[36m"+"no file " +video_id+" found in " + MUSIC_FOLDER+ "\033[0m")
             if not download(video_id, output_folder, VIDEO):
                 print(video_id + "is not avaible")
                 replace_line_change(line_count, STATUS, "deleted")
                 now = datetime.datetime.now()
                 replace_line_change(line_count, DATE, now.strftime("%d.%m.%Y, %H:%M:%S"))
+                line_count += 1
                 continue
         files = files_in_folder("[" + video_id + "]", output_folder)
-        control_format(files[0], line_count, line)
+        if CONTROL:
+            control_format(files[0], line_count, line)
         line_count += 1
+        if DEBUG == True: print("Progress: " + str(line_count) + "/" + str(videos_int))
     file.close()
 
 
 create_ifnot(YT_LIST_TXT)
 # TODO pridat aby se dala zadavat i cela adresa
-# Po Erroru se nekonvertuje do mp3 , možná
-# Zkusit porovnávání obrázků
-# Zmenit kde to bere obraky
+# když to spadne pri convertu, vznikne nedokoncena mp4 file
+# nekdy to blbe píše audio a video do yt-list (možná někde nějaký špatný line_count?) - projit poradne replace a change metody
 now = datetime.datetime.now()
-get_list(API_KEY, PLAYLIST_ID, YT_LIST_TXT)
-download_list(YT_LIST_TXT, MUSIC_FOLDER, CONTROL)
+videos_int = get_list(API_KEY, PLAYLIST_ID, YT_LIST_TXT)
+download_list(YT_LIST_TXT, MUSIC_FOLDER, CONTROL, videos_int)
