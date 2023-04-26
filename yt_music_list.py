@@ -323,7 +323,6 @@ def config():
     print("Output: " + str(MUSIC_FOLDER))
     print("Debug: " + str(DEBUG))
     print("Api key: "+ str(API_KEY))
-    sys.exit()
 config()
 create_ifnot(YT_LIST_TXT)
 # TODO pridat aby se dala zadavat i cela adresa
