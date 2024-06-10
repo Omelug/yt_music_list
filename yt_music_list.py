@@ -12,7 +12,7 @@ import argparse
 
 API_KEY = 'AIzaSyDARsYmVfznRro0fmY8fa3PiyKy2ZMw4cg'
 PLAYLIST_ID = 'PLwtpvkURtbBZakorOTyVstInQ6AeaFAXg'
-YT_LIST_TXT = "yt_list.txt"
+LOG_FILE = "log_list.txt"
 HELP_LIST = "help_list.txt"
 MUSIC_FOLDER = "music"
 IMAGE_FOLDER = "compare_image_folder"
@@ -65,19 +65,19 @@ def create_if_not_exists(filename):
 
 
 def replace_line(number, line_text):
-    with open(YT_LIST_TXT, 'r', encoding='utf-8') as file:
+    with open(LOG_FILE, 'r', encoding='utf-8') as file:
         lines = file.readlines()
     lines[number] = line_text
-    with open(YT_LIST_TXT, 'w', encoding='utf-8') as file:
+    with open(LOG_FILE, 'w', encoding='utf-8') as file:
         file.writelines(lines)
         file.close()
 
 
 def replace_line_change(line_count, number, new_string):
-    with open(YT_LIST_TXT, 'r', encoding='utf-8') as file:
+    with open(LOG_FILE, 'r', encoding='utf-8') as file:
         lines = file.readlines()
     lines[line_count] = change(lines[line_count], number, new_string)
-    with open(YT_LIST_TXT, 'w', encoding='utf-8') as file:
+    with open(LOG_FILE, 'w', encoding='utf-8') as file:
         file.writelines(lines)
         file.close()
 
@@ -272,11 +272,12 @@ def config():
     parser.add_argument("-help", action="store_true")
     parser.add_argument("--tldr", action="store_true")
     parser.add_argument("--yt_list", help="id or link of youtube list")
+    parser.add_argument("--log_list", help="log list of downloaded")
     parser.add_argument("--control", help="control mp4 of already downloaded ?", default=False)
     parser.add_argument("--debug", help="see more than errors", default=False)
     parser.add_argument("--output", help="output music folder")
 
-    global CONTROL, DEBUG, PLAYLIST_ID, MUSIC_FOLDER
+    global CONTROL, DEBUG, PLAYLIST_ID, MUSIC_FOLDER, LOG_FILE
 
     args = parser.parse_args()
     if args.help:
@@ -292,8 +293,11 @@ def config():
         exit(42)
     if args.output:
         MUSIC_FOLDER = args.output
+    if args.log_list:
+        LOG_FILE = args.log_list
 
     print(f"YTList: {PLAYLIST_ID}")
+    print(f"LogList: {LOG_FILE}")
     print(f"Control: {CONTROL}")
     print(f"Output: {MUSIC_FOLDER}")
     print(f"Debug: {DEBUG}")
@@ -304,6 +308,6 @@ def config():
 # nekdy to blbe píše audio a video do yt-list (možná někde nějaký špatný line_count?) - projit poradne replace a change metody
 if __name__ == "__main__":
     config()
-    create_if_not_exists(YT_LIST_TXT)
-    videos_int = get_list(API_KEY, PLAYLIST_ID, YT_LIST_TXT)
-    download_list(YT_LIST_TXT, MUSIC_FOLDER, videos_int)
+    create_if_not_exists(LOG_FILE)
+    videos_int = get_list(API_KEY, PLAYLIST_ID, LOG_FILE)
+    download_list(LOG_FILE, MUSIC_FOLDER, videos_int)
